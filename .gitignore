@@ -1,0 +1,33 @@
+# Data Directory
+data/
+!data/.gitkeep
+!data/README.md
+
+# Build Artifacts
+extract_features
+query
+*.o
+src/*.o
+build/
+
+# Results
+results/*.txt
+results/*.jpg
+results/*.png
+!results/.gitkeep
+!results/README.md
+
+# Reports
+report/*.pdf
+
+# macOS
+.DS_Store
+
+# Editors
+.vscode/
+*.swp
+*~
+
+# Other
+*.bak
+*.log

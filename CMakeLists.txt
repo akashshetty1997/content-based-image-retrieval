@@ -44,7 +44,7 @@ add_executable(extract_features
 
 target_link_libraries(extract_features
     ${OpenCV_LIBS}
-    stdc++fs  # For filesystem support on some systems
+    #stdc++fs  # For filesystem support on some systems
 )
 
 # ========================================
@@ -57,7 +57,7 @@ add_executable(query
 
 target_link_libraries(query
     ${OpenCV_LIBS}
-    stdc++fs  # For filesystem support on some systems
+    #stdc++fs  # For filesystem support on some systems
 )
 
 # ========================================

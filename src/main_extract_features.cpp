@@ -8,16 +8,17 @@
  * This is run ONCE to build the feature database, then can be reused for many queries.
  *
  * Usage:
- *   ./extract_features <image_directory> <output_csv>
+ *   ./extract_features <image_directory> <output_csv> <feature_type>
  *
  * Example:
- *   ./extract_features data/olympus/ data/baseline_features.csv
+ *   ./extract_features data/olympus/ data/baseline_features.csv baseline
+ *   ./extract_features data/olympus/ data/histogram_features.csv histogram
  *
  * What it does:
  *   1. Read all image filenames from directory
  *   2. For each image:
  *      - Load the image
- *      - Extract baseline feature (center 7x7 square)
+ *      - Extract features based on feature type
  *      - Store in memory
  *   3. Write all features to CSV file
  *
@@ -41,21 +42,52 @@ int main(int argc, char *argv[])
 {
     // === Step 1: Parse command line arguments ===
 
-    if (argc != 3)
+    if (argc != 4)
     {
-        std::cerr << "Usage: " << argv[0] << " <image_directory> <output_csv>" << std::endl;
-        std::cerr << "Example: " << argv[0] << " data/olympus/ data/baseline_features.csv" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <image_directory> <output_csv> <feature_type>" << std::endl;
+        std::cerr << "\nFeature types:" << std::endl;
+        std::cerr << "  baseline       - 7x7 center square (Task 1)" << std::endl;
+        std::cerr << "  histogram      - rg chromaticity histogram (Task 2)" << std::endl;
+        std::cerr << "  multihistogram - top/bottom histograms (Task 3)" << std::endl;
+        std::cerr << "  texture        - color + texture histograms (Task 4)" << std::endl;
+        std::cerr << "  dnn            - NOT NEEDED (features provided by assignment)" << std::endl;
+        std::cerr << "  custom         - custom blue scene detector (Task 7)" << std::endl;
+        std::cerr << "\nExamples:" << std::endl;
+        std::cerr << "  " << argv[0] << " data/olympus/ data/baseline_features.csv baseline" << std::endl;
+        std::cerr << "  " << argv[0] << " data/olympus/ data/histogram_features.csv histogram" << std::endl;
+        std::cerr << "  " << argv[0] << " data/olympus/ data/multihistogram_features.csv multihistogram" << std::endl;
+        std::cerr << "  " << argv[0] << " data/olympus/ data/texture_features.csv texture" << std::endl;
         return -1;
     }
 
-    std::string imageDir = argv[1];  // e.g., "data/olympus/"
-    std::string outputCSV = argv[2]; // e.g., "data/baseline_features.csv"
+    std::string imageDir = argv[1];     // e.g., "data/olympus/"
+    std::string outputCSV = argv[2];    // e.g., "data/histogram_features.csv"
+    std::string featureType = argv[3];  // e.g., "histogram"
+
+    // Validate feature type
+    if (featureType != "baseline" && featureType != "histogram" && 
+        featureType != "multihistogram" && featureType != "texture" && featureType != "dnn" && featureType != "custom")
+    {
+        std::cerr << "Error: Invalid feature type: " << featureType << std::endl;
+        std::cerr << "Valid types: baseline, histogram, multihistogram, texture, dnn, custom" << std::endl;
+        return -1;
+    }
+
+    // Check if user tried to extract DNN features
+    if (featureType == "dnn")
+    {
+        std::cerr << "\nError: DNN features are pre-computed by the assignment." << std::endl;
+        std::cerr << "You should use the provided CSV file directly with the query program." << std::endl;
+        std::cerr << "No need to run feature extraction for DNN embeddings." << std::endl;
+        return -1;
+    }
 
     std::cout << "========================================" << std::endl;
     std::cout << "Feature Extraction Program" << std::endl;
     std::cout << "========================================" << std::endl;
     std::cout << "Image directory: " << imageDir << std::endl;
     std::cout << "Output CSV: " << outputCSV << std::endl;
+    std::cout << "Feature type: " << featureType << std::endl;
     std::cout << "========================================\n"
               << std::endl;
 
@@ -114,9 +146,38 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        // Extract baseline feature (center 7x7 square)
+        // Extract features based on type
         std::vector<float> feature;
-        if (extractBaselineFeature(image, feature) != 0)
+        int result;
+
+        if (featureType == "baseline")
+        {
+            result = extractBaselineFeature(image, feature);
+        }
+        else if (featureType == "histogram")
+        {
+            result = extractRGChromaticityHistogram(image, feature);
+        }
+        else if (featureType == "multihistogram")
+        {
+            result = extractMultiHistogram(image, feature);
+        }
+        else if (featureType == "texture")
+        {
+            result = extractTextureColorFeature(image, feature);
+        }
+        else if (featureType == "custom")
+        {
+            result = extractCustomBlueSceneFeature(image, feature);
+        }
+        else
+        {
+            std::cerr << "\nError: Unknown feature type: " << featureType << std::endl;
+            failCount++;
+            continue;
+        }
+        
+        if (result != 0)
         {
             std::cerr << "\nWarning: Failed to extract features from: " << filename << std::endl;
             failCount++;
@@ -149,6 +210,10 @@ int main(int argc, char *argv[])
     std::cout << "Total images found: " << filenames.size() << std::endl;
     std::cout << "Successfully extracted: " << successCount << std::endl;
     std::cout << "Failed: " << failCount << std::endl;
+    if (successCount > 0)
+    {
+        std::cout << "Feature vector size: " << allFeatures[0].feature.size() << " values" << std::endl;
+    }
     std::cout << "========================================\n"
               << std::endl;
 

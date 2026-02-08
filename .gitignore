@@ -1,23 +1,17 @@
-# Data Directory
-data/
-!data/.gitkeep
-!data/README.md
-
-# Build Artifacts
+# Build Artifacts (executables)
 extract_features
 query
 compute_embeddings
 gui_query
+compare_embeddings
 *.o
 src/*.o
 build/
 
-# Results
-results/*.txt
-results/*.jpg
-results/*.png
-!results/.gitkeep
-!results/README.md
+# Data Directory (large files, not for git)
+data/olympus/
+data/*.csv
+data/*.onnx
 
 # Reports
 report/*.pdf

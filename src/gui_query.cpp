@@ -7,6 +7,7 @@
  * Extension: All-in-one GUI for content-based image retrieval.
  * Single window with feature type selector, image browser, search bar,
  * and results grid. Loads all feature databases at startup.
+ * Shows least similar images for custom feature type.
  *
  * Usage:
  *   ./gui_query <image_directory> <dnn_csv>
@@ -49,12 +50,14 @@ const cv::Scalar BG(30, 30, 30);
 const cv::Scalar PANEL_BG(45, 45, 45);
 const cv::Scalar TARGET_BORDER(0, 255, 255);
 const cv::Scalar MATCH_BORDER(0, 255, 0);
+const cv::Scalar BOTTOM_BORDER(0, 0, 255);
 const cv::Scalar BROWSER_BORDER(200, 200, 200);
 const cv::Scalar SELECTED_BORDER(0, 200, 255);
 const cv::Scalar WHITE(255, 255, 255);
 const cv::Scalar GRAY(160, 160, 160);
 const cv::Scalar HEADER(0, 200, 255);
 const cv::Scalar DIVIDER(80, 80, 80);
+const cv::Scalar BOTTOM_LABEL(0, 100, 255);
 
 // ========================================
 // Feature type names
@@ -153,9 +156,13 @@ std::vector<MatchResult> runQuery(const std::string &targetFile,
     std::vector<MatchResult> results;
     std::vector<float> tFeat, tDNN;
 
+    // Validate database is not empty
+    if (db.empty())
+        return results;
+
     if (featureType == "dnn")
     {
-        for (auto &d : db)
+        for (const auto &d : db)
             if (d.filename == targetFile)
             {
                 tFeat = d.feature;
@@ -165,7 +172,7 @@ std::vector<MatchResult> runQuery(const std::string &targetFile,
     else if (featureType == "custom")
     {
         extractFeature(targetImg, featureType, tFeat);
-        for (auto &d : dnnDb)
+        for (const auto &d : dnnDb)
             if (d.filename == targetFile)
             {
                 tDNN = d.feature;
@@ -180,20 +187,36 @@ std::vector<MatchResult> runQuery(const std::string &targetFile,
     if (tFeat.empty())
         return results;
 
+    // For custom features, validate both feature vectors exist with correct sizes
+    if (featureType == "custom")
+    {
+        if (tDNN.empty() || tFeat.size() != 209 || tDNN.size() != 512)
+        {
+            std::cerr << "Warning: Invalid custom query features. "
+                      << "Custom: " << tFeat.size() << " DNN: " << tDNN.size() << std::endl;
+            return results;
+        }
+    }
+
     for (size_t i = 0; i < db.size(); i++)
     {
         float dist;
         if (featureType == "custom")
         {
+            // Verify database entry has correct size
+            if (db[i].feature.size() != 209)
+                continue;
+
             std::vector<float> dbDNN;
-            for (auto &d : dnnDb)
+            for (const auto &d : dnnDb)
                 if (d.filename == db[i].filename)
                 {
                     dbDNN = d.feature;
                     break;
                 }
-            if (dbDNN.empty())
+            if (dbDNN.size() != 512)
                 continue;
+
             dist = computeDist(featureType, tFeat, db[i].feature, tDNN, dbDNN);
         }
         else
@@ -282,10 +305,11 @@ cv::Mat buildDisplay(const std::string &targetFile,
 
     int topH = 45;
     int matchAreaH = matchRows * matchCellH + PAD;
+    int bottomMatchH = (featureType == "custom") ? (THUMB_H + 40 + PAD) : 0;
     int browserH = SMALL_THUMB_H + 35 + PAD * 2;
     int searchH = 55;
     int statusH = 30;
-    int canvasH = topH + matchAreaH + browserH + searchH + statusH + PAD * 2;
+    int canvasH = topH + matchAreaH + bottomMatchH + browserH + searchH + statusH + PAD * 2;
 
     cv::Mat canvas(canvasH, canvasW, CV_8UC3, BG);
 
@@ -322,7 +346,7 @@ cv::Mat buildDisplay(const std::string &targetFile,
         legendY += 14;
     }
 
-    // === Match results (right) ===
+    // === Match results (right) - Top matches ===
     int mStartX = leftW;
     int mStartY = topH + PAD;
     int displayed = 0;
@@ -368,8 +392,57 @@ cv::Mat buildDisplay(const std::string &targetFile,
         displayed++;
     }
 
+    // === Bottom matches (least similar) for custom ===
+    int bottomEndY = topH + matchAreaH;
+
+    if (featureType == "custom" && results.size() > 6)
+    {
+        int bmY = topH + matchAreaH;
+        cv::line(canvas, cv::Point(PAD, bmY), cv::Point(canvasW - PAD, bmY), DIVIDER, 1);
+
+        cv::putText(canvas, "Least Similar (Bottom 3):",
+                    cv::Point(PAD, bmY + 16),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.4, BOTTOM_LABEL, 1);
+
+        int bmImgY = bmY + 22;
+        int bmCount = 0;
+
+        for (int i = (int)results.size() - 1; i >= 0 && bmCount < 3; i--)
+        {
+            if (results[i].filename == targetFile)
+                continue;
+
+            int bx = PAD + bmCount * (THUMB_W + PAD);
+
+            std::string bmPath = imageDir;
+            if (bmPath.back() != '/')
+                bmPath += '/';
+            bmPath += results[i].filename;
+
+            cv::Mat bmImg = cv::imread(bmPath);
+            cv::Mat bmThumb = makeThumbnail(bmImg, THUMB_W, THUMB_H);
+            drawBorder(bmThumb, BOTTOM_BORDER, 2);
+            bmThumb.copyTo(canvas(cv::Rect(bx, bmImgY, THUMB_W, THUMB_H)));
+
+            char bmLabel[64];
+            snprintf(bmLabel, sizeof(bmLabel), "#%d %s",
+                     (int)results.size() - bmCount, results[i].filename.c_str());
+            cv::putText(canvas, bmLabel, cv::Point(bx, bmImgY + THUMB_H + 12),
+                        cv::FONT_HERSHEY_SIMPLEX, 0.28, WHITE, 1);
+
+            char bmDist[32];
+            snprintf(bmDist, sizeof(bmDist), "d=%.4f", results[i].distance);
+            cv::putText(canvas, bmDist, cv::Point(bx, bmImgY + THUMB_H + 24),
+                        cv::FONT_HERSHEY_SIMPLEX, 0.26, GRAY, 1);
+
+            bmCount++;
+        }
+
+        bottomEndY = bmY + bottomMatchH;
+    }
+
     // === Divider line ===
-    int divY = topH + matchAreaH;
+    int divY = bottomEndY;
     cv::line(canvas, cv::Point(PAD, divY), cv::Point(canvasW - PAD, divY), DIVIDER, 1);
 
     // === Image browser strip ===
@@ -486,6 +559,12 @@ int main(int argc, char *argv[])
         std::cerr << "Usage: " << argv[0] << " <image_dir> <dnn_csv>" << std::endl;
         std::cerr << "\nExample:" << std::endl;
         std::cerr << "  " << argv[0] << " data/olympus/ data/ResNet18_olym.csv" << std::endl;
+        std::cerr << "\nMake sure all feature CSVs are generated first:" << std::endl;
+        std::cerr << "  ./extract_features data/olympus/ data/baseline_features.csv baseline" << std::endl;
+        std::cerr << "  ./extract_features data/olympus/ data/histogram_features.csv histogram" << std::endl;
+        std::cerr << "  ./extract_features data/olympus/ data/multihistogram_features.csv multihistogram" << std::endl;
+        std::cerr << "  ./extract_features data/olympus/ data/texture_features.csv texture" << std::endl;
+        std::cerr << "  ./extract_features data/olympus/ data/custom_features.csv custom" << std::endl;
         return -1;
     }
 
@@ -521,7 +600,8 @@ int main(int argc, char *argv[])
         }
         else
         {
-            std::cerr << "  Warning: Could not load " << csv << " (run extract_features first)" << std::endl;
+            std::cerr << "  Warning: Could not load " << csv << std::endl;
+            std::cerr << "  Run: ./extract_features data/olympus/ " << csv << " " << name << std::endl;
         }
     }
 
@@ -529,7 +609,7 @@ int main(int argc, char *argv[])
     std::vector<FeatureData> dnnDb;
     if (readFeaturesFromCSV(dnnCSV, dnnDb) == 0)
     {
-        std::cout << "DNN database loaded for custom features" << std::endl;
+        std::cout << "DNN database loaded for custom features (" << dnnDb.size() << " vectors)" << std::endl;
     }
 
     // Get all image filenames
@@ -592,17 +672,18 @@ int main(int argc, char *argv[])
             // Check if database exists for current feature
             if (databases.find(currentFeature) == databases.end())
             {
-                std::cout << "Warning: No features loaded for '" << currentFeature
-                          << "'. Run: ./extract_features data/olympus/ "
-                          << CSV_FILES[state.featureIdx] << " " << currentFeature << std::endl;
+                std::cout << "Warning: No features loaded for '" << currentFeature << "'" << std::endl;
 
                 // Show placeholder
-                cv::Mat placeholder(400, 700, CV_8UC3, BG);
+                cv::Mat placeholder(520, 900, CV_8UC3, BG);
                 std::string msg = "Features not loaded for: " + currentFeature;
                 cv::putText(placeholder, msg, cv::Point(50, 180),
                             cv::FONT_HERSHEY_SIMPLEX, 0.6, WHITE, 1);
-                cv::putText(placeholder, "Run extract_features first, then restart GUI",
-                            cv::Point(50, 220), cv::FONT_HERSHEY_SIMPLEX, 0.5, GRAY, 1);
+                std::string hint = "Run: ./extract_features data/olympus/ data/" + currentFeature + "_features.csv " + currentFeature;
+                cv::putText(placeholder, hint, cv::Point(50, 220),
+                            cv::FONT_HERSHEY_SIMPLEX, 0.45, GRAY, 1);
+                cv::putText(placeholder, "Then restart the GUI",
+                            cv::Point(50, 260), cv::FONT_HERSHEY_SIMPLEX, 0.45, GRAY, 1);
                 cv::imshow(winName, placeholder);
                 needsUpdate = false;
                 continue;

@@ -6,6 +6,8 @@ data/
 # Build Artifacts
 extract_features
 query
+compute_embeddings
+gui_query
 *.o
 src/*.o
 build/

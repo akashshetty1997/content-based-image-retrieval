@@ -61,6 +61,18 @@ target_link_libraries(query
 )
 
 # ========================================
+# Program 3: gui_query (Extension)
+# ========================================
+add_executable(gui_query
+    src/gui_query.cpp
+    ${UTILS_SOURCES}
+)
+
+target_link_libraries(gui_query
+    ${OpenCV_LIBS}
+)
+
+# ========================================
 # Installation (optional)
 # ========================================
 install(TARGETS extract_features query

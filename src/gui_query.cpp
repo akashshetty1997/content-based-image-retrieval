@@ -75,12 +75,12 @@ const std::vector<std::string> FEATURE_LABELS = {
     "6: Custom (Blue Scene)"};
 
 const std::vector<std::string> CSV_FILES = {
-    "data/baseline_features.csv",
-    "data/histogram_features.csv",
-    "data/multihistogram_features.csv",
-    "data/texture_features.csv",
+    "../data/baseline_features.csv",
+    "../data/histogram_features.csv",
+    "../data/multihistogram_features.csv",
+    "../data/texture_features.csv",
     "", // DNN loaded separately
-    "data/custom_features.csv"};
+    "../data/custom_features.csv"};
 
 // ========================================
 // Helper Functions
@@ -567,7 +567,7 @@ int main(int argc, char *argv[])
         std::cerr << "  ./extract_features data/olympus/ data/custom_features.csv custom" << std::endl;
         return -1;
     }
-
+ 
     std::string imageDir = argv[1];
     std::string dnnCSV = argv[2];
 

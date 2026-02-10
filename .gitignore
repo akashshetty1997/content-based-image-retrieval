@@ -6,7 +6,6 @@ gui_query
 compare_embeddings
 *.o
 src/*.o
-build/
 
 # Data Directory (large files, not for git)
 data/olympus/

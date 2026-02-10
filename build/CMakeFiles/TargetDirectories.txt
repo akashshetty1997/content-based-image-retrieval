@@ -1,0 +1,9 @@
+/Users/skandhanm/Documents/CS5330/content-based-image-retrieval/build/CMakeFiles/extract_features.dir
+/Users/skandhanm/Documents/CS5330/content-based-image-retrieval/build/CMakeFiles/query.dir
+/Users/skandhanm/Documents/CS5330/content-based-image-retrieval/build/CMakeFiles/gui_query.dir
+/Users/skandhanm/Documents/CS5330/content-based-image-retrieval/build/CMakeFiles/edit_cache.dir
+/Users/skandhanm/Documents/CS5330/content-based-image-retrieval/build/CMakeFiles/rebuild_cache.dir
+/Users/skandhanm/Documents/CS5330/content-based-image-retrieval/build/CMakeFiles/list_install_components.dir
+/Users/skandhanm/Documents/CS5330/content-based-image-retrieval/build/CMakeFiles/install.dir
+/Users/skandhanm/Documents/CS5330/content-based-image-retrieval/build/CMakeFiles/install/local.dir
+/Users/skandhanm/Documents/CS5330/content-based-image-retrieval/build/CMakeFiles/install/strip.dir
